@@ -29,6 +29,24 @@ if not bucket:
     raise Exception("Environment variable BUCKET_NAME missing")
 
 s3 = boto3.client('s3')
+cw = boto3.client('cloudwatch')
+
+
+def send_cw_metric(name, dims, unit, value, namespace):
+    response = cw.put_metric_data(
+        MetricData=[
+            {
+                'MetricName': name,
+                'Dimensions': dims,
+                'Unit': unit,
+                'Value': value,
+                'Timestamp': dt.utcnow()
+            },
+        ],
+        Namespace=namespace
+    )
+    if trace is True:
+        print(response)
 
 
 # noinspection PyUnusedLocal
@@ -37,6 +55,9 @@ def lambda_handler(event, context):
 
     if 'Records' in event:
         print("Found {} records to store to S3.".format(len(event['Records'])))
+        dims = [{'Name': 'Function', 'Value': 'SQS_to_S3'}]
+        send_cw_metric(name='Batch Size', dims=dims, unit='Count', value=len(event['Records']),
+                       namespace='Custom Lambda Metrics')
     # First build a list of all the message IDs to process. The list will be depopulated when processed.
     for record in event.get('Records'):
         message_ids.append(record['messageId'])
