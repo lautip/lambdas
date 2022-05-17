@@ -15,7 +15,7 @@ What does this Lambda do:
 Modifies the payload received from IoT Rule and passes the result to an SNS topic.
 In case of exception during the runtime the error and the event are stored in an S3 object in JSON format.
 
-Configuration:
+Configuration
 Declare the following environment variables:
 :param str SNS_TOPIC_ARN: The ARN of the destination SNS topic
 :param str DEAD_LETTER_S3_BUCKET: Destination bucket for storing failed transactions
@@ -40,7 +40,7 @@ s3 = boto3.client('s3')
 SNS_TOPIC_ARN = os.environ.get('SNS_TOPIC_ARN')
 DEAD_BUCKET = os.environ.get('DEAD_LETTER_S3_BUCKET')
 TRACE = os.environ.get("TRACE", False)
-if TRACE in ("true", "True", "TRUE", 1, "Yes", "YES", True, "T"):
+if TRACE in ("true", "True", "TRUE", 1, "Yes", "YES", "yes", True, "T", "Y", "y"):
     TRACE = True
 else:
     TRACE = False
@@ -54,9 +54,9 @@ DATA_MODEL_VER = ('myModelVersion',)
 DATA_CONTRACT_VER = 'ekip00001'
 
 # A few useful constants
-KEY_TSTAMP = 'timestamp' # The key for the timestamp
-KEY_CONTRACT = 'data-contract' # The key for the contract version
-KEY_DATA_MODEL_VER = 'data-model' #The key for the data model version received from the gateway
+KEY_TSTAMP = 'timestamp'  # The key for the timestamp
+KEY_CONTRACT = 'data-contract'  # The key for the contract version
+KEY_DATA_MODEL_VER = 'data-model'  # The key for the data model version received from the gateway
 
 
 def log_me(msg):
