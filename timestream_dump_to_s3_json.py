@@ -17,6 +17,10 @@ Each json document contains at most BLOCKSIZE rows.
 The S3 object keys format is:
     timestream.<DB>.<TB>.<UTC Date & Time>.dump.<page number>.json
 
+this lambda expects to be called by SQS queue trigger with a payload containing as specific day to process, like this:
+{'filter': '2022-01-01'}
+in the Records.body key of the SQS payload.
+
 Configuration:
 Declare the following environment variables:
 :param bool TRACE: True for additional logs
@@ -80,7 +84,7 @@ def print_query_result(query_result):
 
 
 def save_to_s3(pfx, file_nb, payload):
-    print('Processing file #{}'.format(file_nb))
+    print('Storing S3 object #{}'.format(file_nb))
     OBJ_NAME = pfx + '.{:0>8}.json'.format(file_nb)
     s3.put_object(
         Body=json.dumps(payload),
@@ -90,28 +94,44 @@ def save_to_s3(pfx, file_nb, payload):
 
 
 def lambda_handler(event, context):
-    OBJ_PFX = 'timestream.{}.{}.{}.dump'.format(DB, TB, dt.utcnow().strftime("%Y-%m-%dT%H:%M:%S"))
-    QRY = 'SELECT * FROM "{}"."{}"'.format(DB, TB)
-    print('Querying Timestream with: {}'.format(QRY))
-    paginator = tsq.get_paginator('query')
-    page_iterator = paginator.paginate(QueryString=QRY, PaginationConfig={'PageSize': 1000})
-    pg_nb = 0
-    pg_count = 0
-    file_nb = 0
-    payload = []
-    for page in page_iterator:
-        pg_nb += 1
-        pg_count += 1
-        if TRACE is True:
-            print_query_result(page)
-        payload.append({"Rows": page.get("Rows"), "ColumnInfo": page.get("ColumnInfo")})
-        if pg_count >= BLOCKSIZE:
-            pg_count = 0
+    for record in event.get('Records', [{}]):
+        body = json.loads(record.get('body', '{}'))
+        filter = body.get('filter')
+        if not filter:
+            msg = "event not correctly formatted. Read the docstring. \n Event is: {}".format(event)
+            print(msg)
+            raise RuntimeError(msg)
+        OBJ_PFX = 'timestream.{}.{}.{}.{}.dump'.format(DB, TB, filter, dt.utcnow().strftime("%Y-%m-%dT%H:%M:%S"))
+        QRY = 'SELECT * FROM "{}"."{}"'.format(DB, TB)
+        if filter:
+            QRY += " WHERE date_trunc('day', time) = '{}'".format(filter)
+        QRY += " ORDER BY time ASC"
+        print('Querying Timestream with: {}'.format(QRY))
+        paginator = tsq.get_paginator('query')
+        page_iterator = paginator.paginate(QueryString=QRY, PaginationConfig={'PageSize': 1000})
+        pg_nb = 0
+        pg_count = 0
+        file_nb = 0
+        rows = []
+        for page in page_iterator:
+            pg_nb += 1
+            pg_count += 1
+            if TRACE is True:
+                print_query_result(page)
+            if pg_count == 1:
+                # Store the columns info
+                columns = page.get("ColumnInfo")
+            rows.extend(page.get("Rows"))
+
+            if pg_count >= BLOCKSIZE:
+                print("Reached {} pages, rolling to new S3 Object".format(BLOCKSIZE))
+                pg_count = 0
+                file_nb += 1
+                save_to_s3(OBJ_PFX, file_nb, {"Rows": rows, "ColumnInfo": columns})
+                rows = []
+
+        if rows:
             file_nb += 1
-            save_to_s3(OBJ_PFX, file_nb, payload)
-            payload = []
-    if payload:
-        file_nb += 1
-        save_to_s3(OBJ_PFX, file_nb, payload)
-    print('Dump finished without interruption: {} pages processed and {} files written'.format(pg_nb, file_nb))
+            save_to_s3(OBJ_PFX, file_nb, {"Rows": rows, "ColumnInfo": columns})
+        print('Dump finished without interruption: {} pages processed and {} files written'.format(pg_nb, file_nb))
 
