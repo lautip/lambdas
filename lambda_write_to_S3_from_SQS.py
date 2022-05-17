@@ -14,22 +14,34 @@
 import json
 import boto3
 import os
-from datetime import datetime as dt
+import datetime as dt
 
 # Recover & check environment variables
 bucket = os.environ.get("BUCKET_NAME")
-trace = os.environ.get("TRACE", False)
-
+trace = os.environ.get("TRACE", True)
 if trace in ("true", "True", "TRUE", 1, "Yes", "YES", True):
     trace = True
 else:
     trace = False
+
+inspect = os.environ.get("INSPECT", False)
+if inspect in ("true", "True", "TRUE", 1, "Yes", "YES", True):
+    inspect = True
+else:
+    inspect = False
 
 if not bucket:
     raise Exception("Environment variable BUCKET_NAME missing")
 
 s3 = boto3.client('s3')
 cw = boto3.client('cloudwatch')
+
+TIME_FORMAT = "%Y-%m-%dT%H:%M:%S%z"
+
+
+def log_me(msg):
+    if trace is True:
+        print(msg)
 
 
 def send_cw_metric(name, dims, unit, value, namespace):
@@ -40,13 +52,12 @@ def send_cw_metric(name, dims, unit, value, namespace):
                 'Dimensions': dims,
                 'Unit': unit,
                 'Value': value,
-                'Timestamp': dt.utcnow()
+                'Timestamp': dt.datetime.utcnow()
             },
         ],
         Namespace=namespace
     )
-    if trace is True:
-        print(response)
+    log_me(response)
 
 
 # noinspection PyUnusedLocal
@@ -61,8 +72,7 @@ def lambda_handler(event, context):
     # First build a list of all the message IDs to process. The list will be depopulated when processed.
     for record in event.get('Records'):
         message_ids.append(record['messageId'])
-    if trace:
-        print("Messages IDs to proceed: {}".format(message_ids))
+    log_me("Messages IDs to proceed: {}".format(message_ids))
     # Process each message in the Records
     for record in event.get('Records'):
         body_str = record.get('body')
@@ -75,48 +85,50 @@ def lambda_handler(event, context):
             if not msg:
                 raise Exception("no Payload found")
             else:
-                # Inspect the payload
                 payload = json.loads(msg)
-                if trace is True:
-                    print("The payload is: {}".format(payload))
-                timestring = payload.get('timestamp')
-                if not timestring:
-                    raise Exception('Malformed payload: timestamp key missing')
-                thing = payload.get('gateway')
-                if not thing:
-                    raise Exception('Malformed payload: thing key missing')
-                device = payload.get('deviceName')
-                if not device:
-                    raise Exception('Malformed payload: thing key missing')
-                epoch = payload.get('epoch_ms')
-                if not epoch:
-                    raise Exception('Malformed payload: thing key missing')
-                value = payload.get('values')
-                if trace is True:
-                    print("values in payload: {}".format(value))
-                if not value:
-                    raise Exception("Empty payload found")
-                # Check that the timestamp is in the right format and genera the S3 object key
-                tstamp = dt.strptime(timestring, "%Y-%m-%dT%H:%M:%S%z")
+                log_me("The payload is: {}".format(payload))
+                if inspect is True:
+                    timestring = payload.get('timestamp')
+                    if not timestring:
+                        raise Exception('Malformed payload: timestamp key missing')
+                    thing = payload.get('gateway')
+                    if not thing:
+                        raise Exception('Malformed payload: thing key missing')
+                    device = payload.get('deviceName')
+                    if not device:
+                        raise Exception('Malformed payload: thing key missing')
+                    epoch = payload.get('epoch_ms')
+                    if not epoch:
+                        raise Exception('Malformed payload: thing key missing')
+                    value = payload.get('values')
+                    log_me("values in payload: {}".format(value))
+                    if not value:
+                        raise Exception("Empty payload found")
+                    # Check that the timestamp is in the right format and genera the S3 object key
+                    tstamp = dt.datetime.strptime(timestring, TIME_FORMAT)
+                else:
+                    # Do not inspect payload - try to retrieve timestamp in ms or generate it
+                    epoch = payload.get('epoch_ms', int(dt.datetime.utcnow().timestamp()*1000))
+                    thing = payload.get('gateway', 'unknown_gateway')
+                    device = payload.get('deviceName', 'unknown_device')
+                    tstamp = dt.datetime.fromtimestamp(epoch/1000, dt.timezone.utc)
+
+                # save to S3
                 key = "{:02d}/{:02d}/{:02d}/{}/{}/{}.json".format(tstamp.year, tstamp.month, tstamp.day,
                                                                   thing, device, epoch)
-                # save to S3
                 s3.put_object(
                     Body=json.dumps(payload),
                     Bucket=bucket,
                     Key=key
                 )
-                if trace is True:
-                    print("Object stored: {}".format(key))
+                log_me("Object stored: {}".format(key))
                 # Finally remove the item from the list of unprocessed messages
-                if trace is True:
-                    print("Message ID {} processed successfully".format(record['messageId']))
+                log_me("Message ID {} processed successfully".format(record['messageId']))
                 message_ids.remove(record['messageId'])
 
         except Exception as e:
             print("Error when processing a Record: {}".format(e))
 
     r = {"batchItemFailures": [{"itemIdentifier": x} for x in message_ids]}
-    if trace is True:
-        print("Returning unprocessed messages IDs: {}".format(r))
+    log_me("Returning unprocessed messages IDs: {}".format(r))
     return r
