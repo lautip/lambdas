@@ -19,7 +19,7 @@ Configuration
 Declare the following environment variables:
 :param str SNS_TOPIC_ARN: The ARN of the destination SNS topic
 :param str DEAD_LETTER_S3_BUCKET: Destination bucket for storing failed transactions
-:param bool TRACE: True for additional logs
+:param TRACE: True for additional logs. Supports multiple formats. Check the code!
 
 The Role allocated to this Lambda for execution must have the following policies (or less permissive equivalent):
 * 'AWSLambdaBasicExecution'-> for Logging to CloudWatch
@@ -48,15 +48,23 @@ else:
 # Grab the environment variables automatically set
 MYSELF = os.environ.get('AWS_LAMBDA_FUNCTION_NAME')
 
-# Set the gateway data model version(s) compatible with this version of the Lambda
-DATA_MODEL_VER = ('myModelVersion',)
-# Set the data contract version to add to the output payload
-DATA_CONTRACT_VER = 'ekip00001'
+# Set the gateway data model version(s) compatible with this version of the Lambda as a Tuple
+DATA_MODEL_VER = ('ekip0001',)
+# Set the data contract version to add to the output payload as a String
+DATA_CONTRACT_VER = 'ekip0001'
 
 # A few useful constants
 KEY_TSTAMP = 'timestamp'  # The key for the timestamp
-KEY_CONTRACT = 'data-contract'  # The key for the contract version
-KEY_DATA_MODEL_VER = 'data-model'  # The key for the data model version received from the gateway
+KEY_DATA = 'dataObject'
+KEY_DATA_MODEL = 'contract'  # The key for the data model version received from the gateway
+KEY_EPOCH = 'epoch_ms'
+KEY_SITE = 'site_name'
+KEY_DEVICE = 'device_name'
+
+KEY_CONTRACT = 'contract'  # The key for the contract version in the output payload
+
+# Keys expected in the input payload as a Set
+KEYS_EXPECTED = {KEY_TSTAMP, KEY_DATA, KEY_EPOCH, KEY_SITE, KEY_DEVICE, KEY_DATA_MODEL}
 
 
 def log_me(msg):
@@ -64,40 +72,50 @@ def log_me(msg):
         print(msg)
 
 
+def validate_payload(payload: dict) -> None:
+    if not isinstance(payload, dict):
+        raise RuntimeError("The payload should be a dictionary but a type '{}' was received".format(type(payload)))
+    if not payload.get(KEY_DATA_MODEL) in DATA_MODEL_VER:
+        raise RuntimeError("Unsupported version of the incoming data model: '{}'".format(payload.get(KEY_DATA_MODEL)))
+    # Optional - could become a problem if this Lambda supports multiple payloads
+    if not payload.keys() == KEYS_EXPECTED:
+        raise RuntimeError("The input payload keys does not comply with the expected keys. "
+                           "Received keys: {} / Expected keys: {}".format(sorted(payload.keys()),
+                                                                          sorted(KEYS_EXPECTED)))
+    log_me("The input payload is compliant.")
+
+
+def adjust_payload(payload: dict) -> dict:
+    validate_payload(payload)
+    payload.pop(KEY_TSTAMP)
+    payload.pop(KEY_DATA_MODEL)
+    payload[KEY_CONTRACT] = DATA_CONTRACT_VER
+    return payload
+
+
 def lambda_handler(event, context):
     try:
-        print("Received event: {}".format(event))
-        if not event.get('values'):
-            raise AttributeError("Bad incoming payload!")
+        log_me("Received event: {}".format(event))
+        payload = adjust_payload(event)
 
-        # Remove this line when the right payload is received
-        event[KEY_DATA_MODEL_VER] = DATA_MODEL_VER[0]
-
-        # Check that the data model received is compatible with this Lambda version and remove from payload
-        model_ver = event.pop(KEY_DATA_MODEL_VER, None)
-        if model_ver not in DATA_MODEL_VER:
-            raise RuntimeError('Data Model Version not supported: {}'.format(model_ver))
-
-        # Add the Data Contract Version to the payload
-        event[KEY_CONTRACT] = DATA_CONTRACT_VER
-
-        log_me("Sending to SNS: {}".format(event))
+        log_me("Sending to SNS: {}".format(payload))
         # Publish the formatted message
         response = sns.publish(
             TopicArn=SNS_TOPIC_ARN,
-            Message=json.dumps(event)
+            Message=json.dumps(payload)
         )
         log_me("SNS publish response: {}".format(response))
+
     except Exception as e:
         print(e)
-        # Store event in the bucket
-        payload = {
+        # Store event in the Deadletter bucket
+        msg = {
             'error': str(e),
             'event': json.dumps(event)
         }
-        s3_key = "lambda-{}/{}.json".format(MYSELF, int(time.time()*1000))
+        s3_key = "lambda-{}/{}.json".format(MYSELF, int(time.time() * 1000))
         s3.put_object(
-            Body=json.dumps(payload),
+            Body=json.dumps(msg),
             Bucket=DEAD_BUCKET,
             Key=s3_key
         )
