@@ -109,8 +109,8 @@ def lambda_handler(event, context):
                 else:
                     # Do not inspect payload - try to retrieve timestamp in ms or generate it
                     epoch = payload.get('epoch_ms', int(dt.datetime.utcnow().timestamp()*1000))
-                    thing = payload.get('gateway', 'unknown_gateway')
-                    device = payload.get('deviceName', 'unknown_device')
+                    thing = payload.get('gateway', payload.get('device_name', 'unknown_gateway'))
+                    device = payload.get('deviceName',  payload.get('site_name', 'unknown_device'))
                     tstamp = dt.datetime.fromtimestamp(epoch/1000, dt.timezone.utc)
 
                 # save to S3
