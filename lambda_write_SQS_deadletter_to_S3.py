@@ -18,12 +18,6 @@ import time
 
 # Recover & check environment variables
 bucket = os.environ.get("DEADLETTER_BUCKET_NAME")
-trace = os.environ.get("TRACE", False)
-
-if trace in ("true", "True", "TRUE", 1, "Yes", "YES", True):
-    trace = True
-else:
-    trace = False
 
 if not bucket:
     raise Exception("Environment variable BUCKET_NAME missing")
@@ -40,3 +34,4 @@ def lambda_handler(event, context):
         Bucket=bucket,
         Key=key
     )
+    print("Faulty payload stored to S3 bucket '{}' into object '{}'".format(bucket, key))
