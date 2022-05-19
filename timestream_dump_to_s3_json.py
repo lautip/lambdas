@@ -135,3 +135,4 @@ def lambda_handler(event, context):
             save_to_s3(OBJ_PFX, file_nb, {"Rows": rows, "ColumnInfo": columns})
         print('Dump finished without interruption: {} pages processed and {} files written'.format(pg_nb, file_nb))
 
+    return {}
