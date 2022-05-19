@@ -56,7 +56,7 @@ DATA_CONTRACT_VER = 'ekip0001'
 # A few useful constants
 KEY_TSTAMP = 'timestamp'  # The key for the timestamp
 KEY_DATA = 'dataObject'
-KEY_DATA_MODEL = 'contract'  # The key for the data model version received from the gateway
+KEY_DATA_MODEL = 'data_model'  # The key for the data model version received from the gateway
 KEY_EPOCH = 'epoch_ms'
 KEY_SITE = 'site_name'
 KEY_DEVICE = 'device_name'
