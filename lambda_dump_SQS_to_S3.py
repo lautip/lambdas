@@ -18,6 +18,12 @@ Declare the following environment variables:
 :param bool TRACE: True for additional logs
 :param str BUCKET_NAME: Destination bucket name
 
+The Role allocated to the Lambda for execution must have the following policies (or less permissive equivalent):
+* AWSLambdaBasicExecutionRole
+* AWSLambdaSQSQueueExecutionRole
+* AmazonS3FullAccess
+"""
+
 For testing you can use the JSON object below, simulating the payload sent by SQS.
 {
   "Records": [
