@@ -101,7 +101,7 @@ def lambda_handler(event, context):
             msg = "event not correctly formatted. Read the docstring. \n Event is: {}".format(event)
             print(msg)
             raise RuntimeError(msg)
-        OBJ_PFX = 'timestream.{}.{}.{}.{}.dump'.format(DB, TB, filter, dt.utcnow().strftime("%Y-%m-%dT%H:%M:%S"))
+        OBJ_PFX = 'timestream.{}.{}.{}.{}.dump'.format(DB, TB, filter, dt.utcnow().strftime("%Y-%m-%dT%H-%M-%S"))
         QRY = 'SELECT * FROM "{}"."{}"'.format(DB, TB)
         if filter:
             QRY += " WHERE date_trunc('day', time) = '{}'".format(filter)
