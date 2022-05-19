@@ -22,7 +22,7 @@ The Role allocated to the Lambda for execution must have the following policies 
 * AWSLambdaBasicExecutionRole
 * AWSLambdaSQSQueueExecutionRole
 * AmazonS3FullAccess
-"""
+
 
 For testing you can use the JSON object below, simulating the payload sent by SQS.
 {
