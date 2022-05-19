@@ -26,14 +26,14 @@ Declare the following environment variables:
 :param bool TRACE: True for additional logs
 :param str BUCKET: Destination bucket name
 :param int BLOCKSIZE: The number of pages returned by Timestream packed in a single file. Affects the memory used.
-:param str DB: Timesream source database name
+:param str DB: Timestream source database name
 :param str TB: Timestream source table name
 
 Tip:
-Increase the execution time of the Lambda function to the maximum to allow execution on large tables.
+Increase the execution time of the Lambda function and memory to allow execution on large tables.
 
 The Role allocated to the Lambda for execution must have the following policies (or less permissive equivalent):
-* AWSLambdaBasicExecution Role
+* AWSLambdaBasicExecutionRole
 * AmazonTimestreamReadOnlyAccess
 * AmazonS3FullAccess
 """
