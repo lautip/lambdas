@@ -12,8 +12,13 @@
 
 """
 This lambda reads a payload received from SQS and expects to find a JSON object in the Message.
-For testing you can use the JSON object below, simulating the payload sent by SQS.
 
+Configuration:
+Declare the following environment variables:
+:param bool TRACE: True for additional logs
+:param str BUCKET_NAME: Destination bucket name
+
+For testing you can use the JSON object below, simulating the payload sent by SQS.
 {
   "Records": [
     {
@@ -44,22 +49,17 @@ import boto3
 import os
 
 # Recover & check environment variables
-bucket = os.environ.get("BUCKET_NAME")
 trace = os.environ.get("TRACE", True)
 if trace in ("true", "True", "TRUE", 1, "Yes", "YES", True):
     trace = True
 else:
     trace = False
 
-inspect = os.environ.get("INSPECT", False)
-if inspect in ("true", "True", "TRUE", 1, "Yes", "YES", True):
-    inspect = True
-else:
-    inspect = False
-
+bucket = os.environ.get("BUCKET_NAME")
 if not bucket:
     raise Exception("Environment variable BUCKET_NAME missing")
 
+# Declare teh S3 client
 s3 = boto3.client('s3')
 
 
