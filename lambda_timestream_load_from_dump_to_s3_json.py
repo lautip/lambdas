@@ -151,6 +151,7 @@ def lambda_handler(event, context):
             print("Document '{}/{}' successfully read".format(bucket, key))
             records = []
             print('Found {} rows to ingest'.format(len(obj["Rows"])))
+            rows_count = 0
             for row in obj["Rows"]:
                 record = get_record_template()
                 for idx, data in enumerate(row["Data"]):
@@ -161,6 +162,7 @@ def lambda_handler(event, context):
                         # NullValues cannot be written to Timestream. Log other types when detected
                         if k != 'NullValue':
                             print("Ignoring unsupported Type: {}".format(k))
+                        log_me("Skipping row: index {}, data {}".format(idx, data))
                         continue
                     if name == 'time':
                         # This is a timestamp
@@ -182,15 +184,17 @@ def lambda_handler(event, context):
                         record["Dimensions"].append(dim)
                 # add the record to the records
                 records.append(record)
+                rows_count += 1
                 if len(records) == MAX_RECORDS:
                     # Write to Timestream and reset
-                    print("Maximum number of {} records reached. Writing to Timestream.".format(MAX_RECORDS))
+                    log_me("Maximum number of {} records reached. Writing to Timestream.".format(MAX_RECORDS))
                     write_to_timestream(records)
-                    records_count = 0
+                    print("Records written so far: {}".format(rows_count))
                     records = []
             if records:
                 # Write to Timestream the last piece
                 print("Writing the remaining {} records to Timestream".format(len(records)))
                 write_to_timestream(records)
+            print("Total number of records written: {}".format(rows_count))
         except Exception as e:
             log_me(e)
