@@ -10,6 +10,22 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 
+"""
+This lambda populates a SQS queue with a message containing a single date. It is to be used in conjuction with
+lambda_timestream_dump_to_s3_json.py to generate per-day Timestream dump files.
+The massage is formatted to contain a string reprsenting the following dictionary:
+{'filter': 'date'} with date format: "%Y-%m-%d"
+
+Configuration:
+Create a SQS queues with batch = 1
+Declare the following environment variables:
+:param bool TRACE: True for additional logs
+
+The Role allocated to the Lambda for execution must have the following policies (or less permissive equivalent):
+* AWSLambdaBasicExecutionRole
+* AmazonSQSFullAccess
+
+"""
 
 import json
 import boto3
@@ -29,13 +45,18 @@ if not START_DAY:
     raise RuntimeError(msg)
 
 SQS_URL = os.environ.get("SQS_URL")
-sqs = boto3.client('sqs')
+if not SQS_URL:
+    msg = "Missing environment variable 'SQS_URL"
+    print(msg)
+    raise RuntimeError(msg)
 
 TRACE = os.environ.get("TRACE", True)
 if TRACE in ("true", "True", "TRUE", 1, "Yes", "YES", True):
     TRACE = True
 else:
     TRACE = False
+
+sqs = boto3.client('sqs')
 
 
 def log_me(msg):
