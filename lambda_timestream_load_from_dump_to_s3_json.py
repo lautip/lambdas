@@ -35,8 +35,9 @@ Create the Timestream Database and Table:
 When creating the Timestream Table, enable Magnetic Storage Writes and make sure the Magnetic Store rentention period
 is longer than the oldest data point you want to ingest.
 
-Tip:
-Increase the execution time of the Lambda function and memory to allow execution on large objects.
+Tips:
+* Increase the execution time of the Lambda function and memory to allow execution on large objects
+* SQS queue 'Visibility timeout' setting must be equal to or greater than the Lambda maximum execution time
 
 The Role allocated to the Lambda for execution must have the following policies (or less permissive equivalent):
 * AWSLambdaBasicExecutionRole
