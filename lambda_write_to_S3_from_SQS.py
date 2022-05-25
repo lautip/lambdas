@@ -10,6 +10,23 @@
 # CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
 
+"""
+This lambda reads a payload received from SQS. It expects to find a JSON payload in the Message.
+The payload content is checked for specific keys.
+Metrics on Lambda execution are sent to CloudWatch.
+
+Configuration:
+Declare the following environment variables:
+:param bool TRACE: True for additional logs
+:param str BUCKET_NAME: Destination bucket name
+:param str INSPECT: if notTrue, the inspection of the payload is disabled.
+
+The Role allocated to the Lambda for execution must have the following policies (or less permissive equivalent):
+* AWSLambdaBasicExecutionRole
+* AWSLambdaSQSQueueExecutionRole
+* AmazonS3FullAccess
+* [TODO]: Figure out policy for sending CloudWatch metrics
+"""
 
 import json
 import boto3
