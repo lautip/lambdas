@@ -32,12 +32,13 @@ Declare the following environment variables:
 :param str TB: Timestream source table name
 
 Create the Timestream Database and Table:
-When creating the Timestream Table, enable Magnetic Storage Writes and make sure the Magnetic Store rentention period
+When creating the Timestream Table, enable Magnetic Storage Writes and make sure the Magnetic Store retention period
 is longer than the oldest data point you want to ingest.
 
 Tips:
-* Increase the execution time of the Lambda function and memory to allow execution on large objects
-* SQS queue 'Visibility timeout' setting must be equal to or greater than the Lambda maximum execution time
+* Increase the execution time of the Lambda function and memory to allow execution on large objects.
+* Make sure the Visibility Timeout of the SQS queue is longer than the Lambda execution time.
+
 
 The Role allocated to the Lambda for execution must have the following policies (or less permissive equivalent):
 * AWSLambdaBasicExecutionRole
